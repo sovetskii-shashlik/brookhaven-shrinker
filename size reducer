@@ -1,0 +1,89 @@
+local player = game.Players.LocalPlayer
+local screenGui = Instance.new("ScreenGui")
+local button = Instance.new("TextButton")
+
+-- Настройки кнопки
+button.Size = UDim2.new(0, 100, 0, 50) -- начальный размер кнопки
+button.Position = UDim2.new(0.5, -50, 0.5, -25) -- центрируем кнопку
+button.BackgroundColor3 = Color3.fromRGB(0, 255, 0) -- зеленый цвет
+button.BorderSizePixel = 2 -- размер окантовки
+button.BorderColor3 = Color3.fromRGB(0, 0, 0) -- цвет окантовки
+button.Text = "Status: Off"
+button.Font = Enum.Font.SourceSans
+button.TextSize = 24
+button.Parent = screenGui
+
+screenGui.Parent = player:WaitForChild("PlayerGui")
+
+local isActive = false
+
+local function toggleButton()
+    isActive = not isActive -- переключаем состояние
+
+    if isActive then
+        button.BackgroundColor3 = Color3.fromRGB(255, 0, 0) -- красный цвет
+        button.Text = "Status: On"
+
+        local args = {
+            [1] = "CharacterSizeDown",
+            [2] = 10
+        }
+        game:GetService("ReplicatedStorage").RE:FindFirstChild("1Clothe1s"):FireServer(unpack(args))
+
+        -- Устанавливаем одинаковую толщину окантовки
+        button.BorderSizePixel = 4 -- толще окантовка
+    else
+        button.BackgroundColor3 = Color3.fromRGB(0, 255, 0) -- зеленый цвет
+        button.Text = "Status: Off"
+
+        local args = {
+            [1] = "CharacterSizeUp",
+            [2] = 1
+        }
+        game:GetService("ReplicatedStorage").RE:FindFirstChild("1Clothe1s"):FireServer(unpack(args))
+
+        -- Прыжок персонажа
+        local character = player.Character or player.CharacterAdded:Wait()
+        local humanoid = character:FindFirstChildOfClass("Humanoid")
+        if humanoid then
+            humanoid:ChangeState(Enum.HumanoidStateType.Jumping) -- персонаж прыгает
+        end
+
+        -- Уменьшаем размер кнопки обратно к исходному
+        button.Size = UDim2.new(0, 100, 0, 50)
+        button.BorderSizePixel = 2 -- возвращаем толщину окантовки к исходной
+    end
+end
+
+button.MouseButton1Click:Connect(toggleButton) -- обработчик нажатия на кнопку
+
+-- Перемещение кнопки (доступно на телефоне)
+local dragging = false
+local dragInput
+local dragStart
+local startPos
+
+local function updateInput(input)
+    local delta = input.Position - dragStart
+    button.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+end
+
+button.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = button.Position
+
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
+    end
+end)
+
+game:GetService("UserInputService").InputChanged:Connect(function(input)
+    if dragging then
+        updateInput(input)
+    end
+end)
