@@ -1,10 +1,11 @@
 local player = game.Players.LocalPlayer
 local screenGui = Instance.new("ScreenGui")
 local button = Instance.new("TextButton")
+local UserInputService = game:GetService("UserInputService")
 
 -- Настройки кнопки
 button.Size = UDim2.new(0, 100, 0, 50) -- начальный размер кнопки
-button.Position = UDim2.new(0.5, -50, 0.5, -25) -- центрируем кнопку
+button.Position = UDim2.new(0, 0, 0.5, -25) -- позиция кнопки сбоку и по центру вертикально
 button.BackgroundColor3 = Color3.fromRGB(0, 255, 0) -- зеленый цвет
 button.BorderSizePixel = 2 -- размер окантовки
 button.BorderColor3 = Color3.fromRGB(0, 0, 0) -- цвет окантовки
@@ -16,6 +17,9 @@ button.Parent = screenGui
 screenGui.Parent = player:WaitForChild("PlayerGui")
 
 local isActive = false
+local dragging = false
+local dragStart
+local startPos
 
 local function toggleButton()
     isActive = not isActive -- переключаем состояние
@@ -30,7 +34,6 @@ local function toggleButton()
         }
         game:GetService("ReplicatedStorage").RE:FindFirstChild("1Clothe1s"):FireServer(unpack(args))
 
-        -- Устанавливаем одинаковую толщину окантовки
         button.BorderSizePixel = 4 -- толще окантовка
     else
         button.BackgroundColor3 = Color3.fromRGB(0, 255, 0) -- зеленый цвет
@@ -42,14 +45,12 @@ local function toggleButton()
         }
         game:GetService("ReplicatedStorage").RE:FindFirstChild("1Clothe1s"):FireServer(unpack(args))
 
-        -- Прыжок персонажа
         local character = player.Character or player.CharacterAdded:Wait()
         local humanoid = character:FindFirstChildOfClass("Humanoid")
         if humanoid then
             humanoid:ChangeState(Enum.HumanoidStateType.Jumping) -- персонаж прыгает
         end
 
-        -- Уменьшаем размер кнопки обратно к исходному
         button.Size = UDim2.new(0, 100, 0, 50)
         button.BorderSizePixel = 2 -- возвращаем толщину окантовки к исходной
     end
@@ -57,33 +58,51 @@ end
 
 button.MouseButton1Click:Connect(toggleButton) -- обработчик нажатия на кнопку
 
--- Перемещение кнопки (доступно на телефоне)
-local dragging = false
-local dragInput
-local dragStart
-local startPos
-
-local function updateInput(input)
-    local delta = input.Position - dragStart
-    button.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+local function onInputBegan(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        if not dragging then
+            dragging = true
+            dragStart = input.Position
+            startPos = button.Position
+        end
+    end
 end
 
-button.InputBegan:Connect(function(input)
+local function onInputEnded(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        dragging = true
-        dragStart = input.Position
-        startPos = button.Position
-
-        input.Changed:Connect(function()
-            if input.UserInputState == Enum.UserInputState.End then
-                dragging = false
-            end
-        end)
+        dragging = false
     end
-end)
+end
 
-game:GetService("UserInputService").InputChanged:Connect(function(input)
+local function updateButtonPosition(input)
     if dragging then
-        updateInput(input)
+        local screenHeight = workspace.CurrentCamera.ViewportSize.Y
+        local screenWidth = workspace.CurrentCamera.ViewportSize.X
+        local deltaX = input.Position.X - dragStart.X
+        local deltaY = input.Position.Y - dragStart.Y
+
+        -- Вычисляем новую позицию кнопки
+        local newPosX = startPos.X.Offset + deltaX
+        local newPosY = startPos.Y.Offset + deltaY
+
+        -- Ограничиваем позицию кнопки по горизонтали
+        newPosX = math.clamp(newPosX, 0, screenWidth - button.Size.X.Offset)
+
+        -- Ограничиваем позицию кнопки по вертикали
+        newPosY = math.clamp(newPosY, 0, screenHeight - button.Size.Y.Offset)
+
+        -- Обновляем позицию кнопки
+        button.Position = UDim2.new(0, newPosX, 0, newPosY)
+    end
+end
+
+button.InputBegan:Connect(onInputBegan)
+button.InputEnded:Connect(onInputEnded)
+
+UserInputService.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        if dragging then
+            updateButtonPosition(input)
+        end
     end
 end)
